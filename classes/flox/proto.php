@@ -5,4 +5,7 @@
 
 class Flox_Proto
 {
+    public static function factory()
+    {
+    }
 }
