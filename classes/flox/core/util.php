@@ -11,6 +11,7 @@ class Flox_Core_Util
     public static function uniq_id($pre = '', $suf = '')
     {
         list($usec, $sec) = explode(' ', microtime());
-        return $pre . date('YmdHis') . $suf;
+        $usec = intval($usec * pow(10, 8));
+        return $pre . date('YmdHis'). "_".$usec . $suf;
     }
 }

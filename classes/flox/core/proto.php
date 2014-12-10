@@ -49,7 +49,12 @@ class Flox_Core_Proto
             ),
         );
 
+        if (! $this->_config['expr']) {
+            throw new Flox_Exception("proto config must have expr");
+        }
         $closure_id = md5($this->_config['expr']);
+
+        Flox::profile("Proto expr, ". print_r($this->_config['expr'], TRUE)." closure_id: ". $closure_id, __FILE__, __LINE__);
         if (! $closure = Flox::current()->get_closure($closure_id)) {
 
             $params = array();
@@ -57,8 +62,11 @@ class Flox_Core_Proto
                 $params[] = '$' . $param['name'];
             }
             $param_string = implode(', ', $params);
-            $closure = create_function($param_string, $expr);
-            Flox::current()->set($closure_id, $closure);
+            if (! $closure = create_function($param_string, $this->_config['expr'])) {
+                Flox::profile("failed to create closure", __FILE__, __LINE__);
+            }
+            
+            Flox::current()->set_closure($closure_id, $closure);
         }
 
         $this->_closure = $closure;
@@ -71,6 +79,7 @@ class Flox_Core_Proto
 
     public function execute($arg = array())
     {
+        Flox::current()->set_current_proto($this);
         $ret = call_user_func_array($this->_closure, $arg);
     }
 }

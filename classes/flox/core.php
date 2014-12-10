@@ -21,10 +21,18 @@ class Flox_Core
      */
     private $_current_flow;
 
+    private $_current_entity;
+
+    private $_current_proto;
+
     /**
      * 闭包函数数组
      */
     private $_closure = array();
+
+    public static $profile = TRUE;
+    private static $_profile = array();
+    private static $_profile_callback;
 
     /**
      * 工厂方法，创建一个新的流程引擎实例
@@ -33,6 +41,7 @@ class Flox_Core
      */
     public static function factory($flow)
     {
+        Flox::profile("Flox::factory, " . print_r($flow, TRUE), __FILE__, __LINE__);
         return new self($flow);
     }
 
@@ -65,14 +74,7 @@ class Flox_Core
      */
     public function set_flow($flow)
     {
-        
-        if (is_string($flow) || is_array($flow)) {
-            $flow = Flox_Flow::factory($flow);
-        }
-
-        if ($flow instanceof Flox_Flow) {
-            $this->_flow = $flow;
-        }
+        $this->_flow = Flox_Flow::factory($flow);
         
     }
 
@@ -84,15 +86,41 @@ class Flox_Core
         return $this->_flow;
     }
 
+    public function set_current_flow($flow)
+    {
+        $this->_current_flow = $flow;
+    }
 
+    public function get_current_flow()
+    {
+        return $this->_current_flow;
+    }
+
+    public function set_current_entity($entity)
+    {
+        $this->_current_entity = $entity;
+    }
+    public function get_current_entity()
+    {
+        return $this->_current_entity;
+    }
+
+    public function set_current_proto($proto)
+    {
+        $this->_current_proto = $proto;
+    }
+    public function get_current_proto()
+    {
+        return $this->_current_proto;
+    }
     /**
      * 启动当前引擎
      */
-    public function execute()
+    public function execute($arg = array())
     {
         Flox::set_current($this);
 
-        $this->_flow->execute();
+        $this->_flow->execute($arg);
 
         Flox::set_current(NULL);
     }
@@ -104,6 +132,35 @@ class Flox_Core
 
     public function get_closure($closure_id)
     {
-        return $this->_closure[$closure_id];
+        return isset($this->_closure[$closure_id]) ? $this->_closure[$closure_id] : NULL;
+    }
+
+    /**
+     * 设置分析回调函数
+     */
+    public static function set_profile($callback)
+    {
+        self::$_profile_callback = $callback;
+    }
+
+    public static function profile($msg, $file = NULL, $line = NULL)
+    {
+        if (! self::$profile) {
+            return;
+        }
+
+        if (self::$_profile_callback) {
+            call_user_func_array(self::$_profile_callback, array($msg, $file, $line));
+            return;
+        }
+
+        $this->_profile[] = array(
+            'time' => microtime(TRUE),
+            'msg' => $msg,
+            'file' => $file,
+            'line' => $line,
+        );
     }
 }
+
+

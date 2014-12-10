@@ -3,12 +3,13 @@
  * entity.php 流程节点
  */
 
-class Flow_Core_Entity
+class Flox_Core_Entity
 {
     private $_config = array();
 
     public static function factory($config)
     {
+        Flox::profile("Entity:factory, ". print_r($config, TRUE), __FILE__, __LINE__);
         return new self($config);
 
     }
@@ -24,6 +25,7 @@ class Flow_Core_Entity
     public function set_config($config)
     {
         if (is_string($config)) {
+            Flox::profile("Entity load config by id, ". print_r($config, TRUE), __FILE__, __LINE__);
             $config = Flox_Loader::load('entity', $config);
         }
 
@@ -33,8 +35,8 @@ class Flow_Core_Entity
 
         if (is_array($config)) {
             $config = $config + array(
-                'id' => '',
-                'type' => ''
+                'id' => Flox_Util::uniq_id("ENTITY_AUTO_"),
+                'type' => '',
                 'proto' => '',
                 'arg' => '',
                 'device' => array(
@@ -47,11 +49,19 @@ class Flow_Core_Entity
                 ),
             );
         }
+
+        $this->_config = $config;
+        Flox::profile("Entity set config complete, ".print_r($config, TRUE), __FILE__, __LINE__);
     }
 
     public function get_config()
     {
         return $this->_config;
+    }
+
+    public function id()
+    {
+        return $this->_config['id'];
     }
 
 
@@ -60,7 +70,8 @@ class Flow_Core_Entity
      */
     public function execute()
     {
-        if ($config['type'] == 'process') { 
+        Flox::current()->set_current_entity($this);
+        if ($this->_config['type'] == 'process') { 
             $proto = Flox_Proto::factory($this->_config['proto']);
             call_user_func_array($proto, $this->_config['arg']);
         }
