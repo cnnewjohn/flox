@@ -1,11 +1,3 @@
 <?php
-/**
- * proto.php 操作原型
- */
 
-class Flox_Proto
-{
-    public static function factory($proto_id, $proto_config)
-    {
-    }
-}
+class Flox_Proto extends Flox_Core_Proto {}
