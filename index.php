@@ -13,19 +13,52 @@ function autoload($class_name) {
 
 spl_autoload_register('autoload');
 
-$config = array(
-    'id' => 'test_flow',
-    'entity' => array(
-        0 => array(
-            'type' => 'process',    
+$proto_id = 'proto_1';
+$proto_config = array(
+    'expr' => 'echo $str;',
+    'param' => array(
+        array(
+            'name' => 'str',
         ),
     ),
-    'entry' => '0',
 );
+Flox_Proto::instance($proto_id, $proto_config);
+
+
+$flow_id = 'flow_1';
+$flow_config = array(
+    'entity' => array(
+        1 => array(
+            'type' => 'process',    
+            'proto' => $proto_id,
+            'arg' => array(
+                "Hello World !!!\r\n",
+            ),
+            'decesion' => array(
+                array(
+                    'next' => '2',
+                )
+            )
+        ),
+        2 => array(
+            'type' => 'decesion',
+            'decesion' => array(
+                array(
+                    'expr' => 'time() % 2 == 0',
+                    'next' => '1',
+                ),
+            ),
+        ),
+        
+        
+    ),
+    'entry' => '1',
+);
+Flox_Flow::factory($flow_id, $flow_config);
 
 function profile($msg, $file, $line) {
-    echo date('Y-m-d H:i:s')."\t{$file}\t{$line}\t{$msg}\r\n";
+    //echo date('Y-m-d H:i:s')."\t{$file}\t{$line}\t{$msg}\r\n";
 }
 Flox::set_profile('profile');
-$flox = Flox::factory($config);
+$flox = Flox::factory($flow_id);
 $flox->execute();

@@ -1,85 +1,169 @@
 <?php
 /**
- * proto.php 操作原型
+ * proto.php Flox Proto Class 
  */
-
 class Flox_Core_Proto
 {
-    private $_config = array();
+    /**
+     * proto instance array
+     */
+    private static $_instance = array();
 
+    /**
+     * cached proto config
+     */
+    private static $_cached_config = array();
+
+    /**
+     * proto custom loader
+     */
+    private static $_loader = array();
+
+    /**
+     * proto closure function
+     */
     private $_closure;
 
-    public static function factory($config)
-    {
-        return new self($config);
-    }
+    /**
+     * proto closure param
+     */
+    private $_param = array();
 
-    public function __construct($config)
+    /**
+     * get proto instance by proto id
+     *
+     * @param string $id, proto id
+     * @param mixed $config, proto config
+     * @return object
+     */
+    public static function instance($id, $config = NULL)
     {
-        $this->set_config($config);
-    }
-
-    public function set_config($config)
-    {
-        if (is_string($config)) {
-            $config = Flox_Loader::load('proto', $config);
+        if (! $id || ! is_string($id)) {
+            throw new Flox_Exception("Proto id must be string");
         }
 
-        if (is_array($config)) {
-            $this->_config = $config;
+        if (! isset(self::$_instance[$id])) {
+            self::$_instance[$id] = new self($id, $config);
         }
 
-        $this->_config = $this->_config + array(
-            'id' => '',
+        return self::$_instance[$id];
+    }
+
+    /**
+     * set custom proto loader
+     *
+     * @param string $id, loader id
+     * @param callback $loader, custom loader
+     */
+    public static function set_loader($id, $loader)
+    {
+        if (! $id || ! is_string($id)) {
+            throw new Flox_Exception("Loader id must be string");
+        }
+
+        if (! is_callable($loader)) {
+            throw new Flox_Exception("Loader must be callback");
+        }
+
+        self::$_loader[$id] = $loader;
+    }
+
+    /**
+     * load proto by custom loader
+     *
+     * @param string $id, proto id
+     * @return mixed, array || NULL
+     */
+    public static function load($id)
+    {
+        foreach (self::$_loader as $loader) {
+            $config = $loader($id);
+            if ($config && is_array($config)) {
+                return $config;
+            }
+        }
+    }
+
+    /**
+     * construct
+     */
+    public function __construct($id, $config)
+    {
+        if (! $id || ! is_string($id)) {
+            throw new Flox_Exception("Proto id must be string");
+        }
+
+        if (! $config || ! is_array($config)) {
+            $config = Flox_Proto::load($id);
+            if (! $config || ! is_array($config)) {
+                throw new Flox_Exception("Failed to load proto config");
+            }
+        }
+
+        if (! $config || ! is_array($config)) {
+            throw new Flox_Exception("Proto config must be array");
+        }
+
+        /**
+        array(
             'expr' => '',
             'param' => array(
-                0 => array(
-                    'name' => 'qq',
-                    'title' => '用户QQ号码',
+                array(
+                    'name' => 'param1',
                     'default' => '',
-                    'type' => '', // text select textarea
-                ),    
-            ),    
-            'return' => array(
-                0 => array(
-                    'name' => 'dbname',
-                    'title' => '数据库名',
-                    'type' => '', // string array obj    
-                ),    
+                ),
             ),
-        );
+        )
+         */
 
-        if (! $this->_config['expr']) {
-            throw new Flox_Exception("proto config must have expr");
+        if (! isset($config['expr']) || ! is_string($config['expr'])) {
+            throw new Flox_Exception("Proto expr must be string");
         }
-        $closure_id = md5($this->_config['expr']);
 
-        Flox::profile("Proto expr, ". print_r($this->_config['expr'], TRUE)." closure_id: ". $closure_id, __FILE__, __LINE__);
-        if (! $closure = Flox::current()->get_closure($closure_id)) {
+        if (! Flox_Util::check_php_syntax($config['expr'])) {
+            throw new Flox_Exception("Proto expr is invalid source php code");
+        }
 
-            $params = array();
-            foreach ($this->_config['param'] as $param) {
-                $params[] = '$' . $param['name'];
+        if (! isset($config['param'])) {
+            $config['param'] = array();
+        }
+
+        $param_keys = array();
+
+        foreach ($config['param'] as $param) {
+            if (! isset($param['name']) || ! is_string($param['name']) 
+                || ! $param['name']) {
+                throw new Flox_Exception("Proto param name must be string");
             }
-            $param_string = implode(', ', $params);
-            if (! $closure = create_function($param_string, $this->_config['expr'])) {
-                Flox::profile("failed to create closure", __FILE__, __LINE__);
-            }
-            
-            Flox::current()->set_closure($closure_id, $closure);
+
+            $param_keys[] = '$' . $param['name'];
+        }
+
+        $this->_param = $config['param'];
+
+        $param_string = implode(', ', $param_keys);
+        $closure = create_function($param_string, $config['expr']);
+        
+        if (! $closure) {
+            throw new Flox_Exception("Failed to craete proto closure");
         }
 
         $this->_closure = $closure;
+
     }
 
-    public function get_config()
-    {
-        return $this->_config;
-    }
-
+    /**
+     * execute proto closure
+     *
+     * @param array $arg, for closure
+     */
     public function execute($arg = array())
     {
-        Flox::current()->set_current_proto($this);
-        $ret = call_user_func_array($this->_closure, $arg);
+        if (count($arg) !== count($this->_param)) {
+            throw new Flox_Exception("Invalid args number");
+        }
+
+        return call_user_func_array($this->_closure, $arg);
     }
+
 }

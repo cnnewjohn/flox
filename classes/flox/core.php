@@ -1,20 +1,19 @@
 <?php
 /**
- * core.php 流程引擎内核
+ * core.php Flox Core Class 
  */
-
 class Flox_Core
 {
 
     /**
-     * 当前正在执行的引擎实例
+     * current running flox instance 
      */
-    private static $_current;
+    private static $_current_flox;
 
     /**
-     * 当前引擎加载的流程实例
+     * init flow 
      */
-    private $_flow;
+    private $_init_flow;
 
     /**
      * 当前引擎正在执行的流程实例
@@ -35,55 +34,40 @@ class Flox_Core
     private static $_profile_callback;
 
     /**
-     * 工厂方法，创建一个新的流程引擎实例
+     * create new flox instance 
      *
-     * @param mixed $flow, 流程。如果为字符串，将视为流程id，并自动加载流程；如果为数组，将设为流程配置；如果为对象，将视为流程实例
+     * @param string $id, flow id
+     * @return object, flox instance 
      */
-    public static function factory($flow)
+    public static function factory($id)
     {
-        Flox::profile("Flox::factory, " . print_r($flow, TRUE), __FILE__, __LINE__);
-        return new self($flow);
+        return new self($id);
     }
 
     /**
-     * 获取当前正在执行的流程引擎实例
+     * return current running flox instance 
      */
     public static function current()
     {
-        return self::$_current;
+        return self::$_current_flox;
     }
 
     /**
-     * 设置当前正在执行的流程引擎实例，仅供引擎启动时调用
+     * set current running flox instance when execute 
      */
-    public static function set_current($flox = NULL)
+    public static function set_current(Flox_Core $flox)
     {
-        self::$_current = $flox;
-    }
-
-
-
-    public function __construct($flow)
-    {
-        $this->set_flow($flow);
+        self::$_current_flox = $flox;
     }
 
     /**
-     * 设置要加载执行的流程实例
+     * construct
      *
+     * @param string $id, flow id
      */
-    public function set_flow($flow)
+    public function __construct($id)
     {
-        $this->_flow = Flox_Flow::factory($flow);
-        
-    }
-
-    /**
-     * 获取加载的流程实例
-     */
-    public function get_flow()
-    {
-        return $this->_flow;
+        $this->_init_flow = Flox_Flow::factory($id);
     }
 
     public function set_current_flow($flow)
@@ -113,16 +97,16 @@ class Flox_Core
     {
         return $this->_current_proto;
     }
+
     /**
-     * 启动当前引擎
+     * execute flow instance
+     *
+     * @param array $arg, flow param value 
      */
     public function execute($arg = array())
     {
         Flox::set_current($this);
-
-        $this->_flow->execute($arg);
-
-        Flox::set_current(NULL);
+        $this->_init_flow->execute($arg);
     }
 
     public function set_closure($closure_id, $closure)
