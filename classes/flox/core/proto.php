@@ -130,10 +130,14 @@ class Flox_Core_Proto
 
         $param_keys = array();
 
-        foreach ($config['param'] as $param) {
+        foreach ($config['param'] as $idx => $param) {
             if (! isset($param['name']) || ! is_string($param['name']) 
                 || ! $param['name']) {
                 throw new Flox_Exception("Proto param name must be string");
+            }
+
+            if (! isset($param['default'])) {
+                $config['param'][$idx]['default'] = $param['default'] = NULL;
             }
 
             $param_keys[] = '$' . $param['name'];
@@ -159,11 +163,18 @@ class Flox_Core_Proto
      */
     public function execute($arg = array())
     {
-        if (count($arg) !== count($this->_param)) {
-            throw new Flox_Exception("Invalid args number");
+        if (! is_array($arg)) {
+            $arg = array();
+        }
+        
+        $value = array();
+        foreach ($this->_param as $param) {
+            $key = $param['name'];
+            $value[$key] = isset($arg[$key]) ? $arg[$key] : $param['default'];
+            $value[$key] = Flox::replace_var($value[$key]);
         }
 
-        return call_user_func_array($this->_closure, $arg);
+        return call_user_func_array($this->_closure, $value);
     }
 
 }

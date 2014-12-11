@@ -16,6 +16,11 @@ class Flox_Core_Flow
     private $_id = '';
 
     /**
+     * current flow instance context
+     */
+    private $_context = array();
+
+    /**
      * cached flow instance config
      */
     private static $_cached_config = array();
@@ -183,9 +188,13 @@ class Flox_Core_Flow
                 $config['param'] = array();
             }
 
-            foreach ($config['param'] as $param) {
+            foreach ($config['param'] as $idx => $param) {
                 if (! isset($param['name']) || ! is_string($param['name'])) {
                     throw new Flox_Exception("Flow param name must be string");
+                }
+
+                if (! isset($param['default'])) {
+                    $config['param'][$idx]['default'] = $param['default'] = NULL;
                 }
             }
 
@@ -309,6 +318,29 @@ class Flox_Core_Flow
     }
 
     /**
+     * set current flow instance context
+     *
+     * @param string $key
+     * @param mixed $value
+     */
+    public function set_context($key, $value)
+    {
+        $this->_context[$key] = $value;
+    }
+
+    /**
+     * get current flow instance cnotext
+     *
+     * @param string $key
+     */
+    public function get_context($key)
+    {
+        if (isset($this->_context[$key])) {
+            return $this->_context[$key];
+        }
+    }
+
+    /**
      * execute flow
      *
      * @param array $arg 
@@ -317,6 +349,24 @@ class Flox_Core_Flow
     {
         Flox::current()->set_current_flow($this);
         $entity_id = $this->_config['entry'];
+
+        if (! is_array($arg)) {
+            $arg = array();
+        }
+
+        foreach ($this->_config['param'] as $param) {
+            $key = $param['name'];
+            if (is_array($arg) && isset($arg[$key])) {
+                $this->_context[$key] = $arg[$key];
+            } else {
+                $this->_context[$key] = $param['default'];
+            }
+
+            $this->_context[$key] = Flox::replace_var($this->_context[$key],
+                'GLOBAL');
+        }
+
+
 
         while ($entity_id && isset($this->_config['entity'][$entity_id])) {
             $entity_id = $this->_execute_entity($entity_id);

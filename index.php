@@ -32,7 +32,7 @@ $flow_config = array(
             'type' => 'process',    
             'proto' => $proto_id,
             'arg' => array(
-                "Hello World !!!\r\n",
+                'str' => "{{VAR.str}}\r\n",
             ),
             'decesion' => array(
                 array(
@@ -44,7 +44,7 @@ $flow_config = array(
             'type' => 'decesion',
             'decesion' => array(
                 array(
-                    'expr' => 'time() % 2 == 0',
+                    'expr' => ' 0',
                     'next' => '1',
                 ),
             ),
@@ -53,6 +53,11 @@ $flow_config = array(
         
     ),
     'entry' => '1',
+    'param' => array(
+        array(
+            'name' => 'str',
+        ),
+    ),
 );
 Flox_Flow::factory($flow_id, $flow_config);
 
@@ -61,4 +66,4 @@ function profile($msg, $file, $line) {
 }
 Flox::set_profile('profile');
 $flox = Flox::factory($flow_id);
-$flox->execute();
+$flox->execute(array('hehe'));

@@ -25,6 +25,11 @@ class Flox_Core
     private $_current_proto;
 
     /**
+     * current flox context
+     */
+    private $_context = array();
+
+    /**
      * 闭包函数数组
      */
     private $_closure = array();
@@ -61,6 +66,56 @@ class Flox_Core
     }
 
     /**
+     * get global var in flox instance
+     */
+    public static function get_global($key)
+    {
+        return Flox::current()->get_context($key);
+    }
+
+    public static function set_global($key, $value)
+    {
+        Flox::current()->set_context($key, $value);
+    }
+
+    /**
+     * get var in current flow instance
+     */
+    public static function get_var($key)
+    {
+        return Flox::current()->get_current_flow()->get_context($key);
+    }
+
+    public static function set_var($key, $value)
+    {
+        Flox::current()->get_current_flow()->set_context($key, $value);
+    }
+
+    /**
+     * replace context
+     */
+    public static function replace_var($var, $scope = 'ALL')
+    {
+        /**
+        $reg = '/\{\{(GLOBAL|VAR)[0-9a-zA-Z-_\.]*\}\}/';
+        if (preg_match_all($reg, $var, $m)) {
+            foreach ($m[0] as $source) {
+                $path = explode('.', $source);
+                $depth = 0;
+                $max = count($path);
+                do {
+                    $value = ''; 
+                    $depth ++;
+                } while ($depth >= $max);
+                $value = '';
+                $var = str_replace($source, $value, $var);
+            }
+        }
+         */
+        return $var;
+    }
+
+    /**
      * construct
      *
      * @param string $id, flow id
@@ -68,6 +123,18 @@ class Flox_Core
     public function __construct($id)
     {
         $this->_init_flow = Flox_Flow::factory($id);
+    }
+
+    public function set_context($key, $value)
+    {
+        $this->_context[$key] = $value;
+    }
+
+    public function get_context($key)
+    {
+        if (isset($this->_context[$key])) {
+            return $this->_context[$key];
+        }
     }
 
     public function set_current_flow($flow)
@@ -80,23 +147,6 @@ class Flox_Core
         return $this->_current_flow;
     }
 
-    public function set_current_entity($entity)
-    {
-        $this->_current_entity = $entity;
-    }
-    public function get_current_entity()
-    {
-        return $this->_current_entity;
-    }
-
-    public function set_current_proto($proto)
-    {
-        $this->_current_proto = $proto;
-    }
-    public function get_current_proto()
-    {
-        return $this->_current_proto;
-    }
 
     /**
      * execute flow instance
@@ -109,16 +159,7 @@ class Flox_Core
         $this->_init_flow->execute($arg);
     }
 
-    public function set_closure($closure_id, $closure)
-    {
-        $this->_closure[$closure_id] = $closure;
-    }
-
-    public function get_closure($closure_id)
-    {
-        return isset($this->_closure[$closure_id]) ? $this->_closure[$closure_id] : NULL;
-    }
-
+  
     /**
      * 设置分析回调函数
      */
