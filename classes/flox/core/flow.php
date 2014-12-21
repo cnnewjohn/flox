@@ -115,8 +115,12 @@ class Flox_Core_Flow
                         $config['node'][$node_id]['direction'][$idx]['expr']
                             = $d['expr'] = '';
                     }
-                    Flox_Util::create_closure('$context', 
-                        "return ({$d['expr']});");
+                    $d['_expr'] = $d['expr'];
+                    $d['_expr'] = 'extract($context);'. "return ({$d['_expr']});";
+                    $config['node'][$node_id]['direction'][$idx]['_expr']
+                        = $d['_expr'];
+                        
+                    Flox_Util::create_closure('$context', $d['_expr']);
                 }
             }
 
@@ -162,11 +166,19 @@ class Flox_Core_Flow
             $this->context[$bind['target']] = $value;
         }
 
-        foreach ($node['direction'] as $d) {
+        foreach ($node['direction'] as $idx => $d) {
             $closure = Flox_Util::create_closure('$context', 
-                        "return ({$d['expr']});");
+                        "{$d['_expr']}");
 
-            if (call_user_func_array($closure, array($this->context))) {
+            if (@call_user_func_array($closure, array($this->context))) {
+                if ($err = error_get_last()) {
+                    throw new Flox_Exception("Error when execute direction:\r\n"
+                        ."Flow:\t{$this->_flow_id}\r\n"
+                        ."Node:\t{$node_id}\r\n"
+                        ."direction:\t{$idx}\t{$d['title']}\r\n"
+                        ."expr:\t{$d['expr']}\r\n"
+                        ."err:\t{$err['message']}\r\n");
+                }
                 return $d['next'];
             }
         }

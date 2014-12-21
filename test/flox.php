@@ -28,7 +28,7 @@ $flow_config = array(
                 array('source' => 'return', 'target' => 'c')
             ),
             'direction' => array(
-                array('next' => 'node1', 'expr' => 1),
+                array('next' => 'node1', 'title' => 'test',  'expr' => '$c == ""'),
             ),
         ),
     ),
