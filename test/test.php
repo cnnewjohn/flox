@@ -1,2 +1,4 @@
 <?php
-$a=1;
+$a = array(false);
+$b = end($a);
+var_dump($b);

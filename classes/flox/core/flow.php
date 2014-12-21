@@ -8,6 +8,7 @@ class Flox_Core_Flow
     public static $loader;
     public static $saver;
     public static $current;
+    public static $_flow_stack = array();
 
     private $_config = array();
     public $context = array();
@@ -18,6 +19,18 @@ class Flox_Core_Flow
     public static function factory($flow_id, $config = array())
     {
         return new self($flow_id, $config);
+    }
+
+    public static function in_flow($flow)
+    {
+        self::$_flow_stack[] = $flow;
+        self::$current = $flow;
+    }
+
+    public static function out_flow()
+    {
+        array_pop(self::$_flow_stack);
+        self::$current = end(self::$_flow_stack);
     }
 
     public function __construct($flow_id, $config)
@@ -116,7 +129,8 @@ class Flox_Core_Flow
                             = $d['expr'] = '';
                     }
                     $d['_expr'] = $d['expr'];
-                    $d['_expr'] = 'extract($context);'. "return ({$d['_expr']});";
+                    $d['_expr'] = '$CONTEXT = Flox_Flow::$current->context;'
+                        . "return ({$d['_expr']});";
                     $config['node'][$node_id]['direction'][$idx]['_expr']
                         = $d['_expr'];
                         
@@ -136,7 +150,21 @@ class Flox_Core_Flow
                 }
             }
 
-            
+            foreach ($config['out'] as $idx => $p) {
+                if (! isset($p['name'])) {
+                    throw new Exception("invalid input param name");
+                }
+                if (! preg_match('/^[a-zA-Z_]+/i', $p['name'])) {
+                    throw new Exception("invalid input parma name");
+                }
+                if (! isset($p['path'])) {
+                    $config['out'][$idx]['path'] = '';
+                }
+                if (! isset($p['title']) || ! $p['title']) {
+                    $config['out'][$idx]['title'] = $p['name'];
+                }
+            }
+
             Flox_Flow::$config[$this->_flow_id] = $this->_config = $config;
 
             return TRUE;
@@ -194,8 +222,8 @@ class Flox_Core_Flow
      */
     public function execute($arg = array())
     {
+        Flox_Flow::in_flow($this);
         $this->context = array();
-        Flox_Flow::$current = $this;
 
         foreach ($this->_config['in'] as $in) {
             $key = $in['name'];
@@ -207,6 +235,15 @@ class Flox_Core_Flow
             $node_id = $this->_execute_node($node_id);
         }
 
+        Flox_Flow::out_flow();
+
+        if (Flox_Flow::$current) {
+            foreach ($this->_config['out'] as $out) {
+                $key = $out['name'];
+                $value = Flox_Util::path($this->context, $out['path']);
+                Flox_Flow::$current->context[$key] = $value;
+            }
+        }
     }
 
 

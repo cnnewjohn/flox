@@ -12,6 +12,14 @@ $apis = array(
         ),
         'expr' => 'return eval($code);',
     ),
+    'flow' => array(
+        'in' => array(
+            array('name' => 'flow_id'),
+            array('name' => 'arg',),
+        ),
+        'out' => array(),
+        'expr' => 'return Flox_Flow::factory($flow_id)->execute($arg);',
+    ),
 
 );
 
@@ -23,19 +31,39 @@ $flow_config = array(
     'node' => array(
         'node1' => array(
             'api' => 'closure',
-            'arg' => array('code' => 'return time();'),
+            'arg' => array('code' => 'var_dump("Context", $CONTEXT);'),
             'bind' => array(
                 array('source' => 'return', 'target' => 'c')
             ),
             'direction' => array(
-                array('next' => 'node1', 'title' => 'test',  'expr' => '$c == ""'),
             ),
         ),
     ),
     'entry' => 'node1',
+    'in' => array(
+        array('name' => 'id')
+    ),
+    'out' => array(
+        array('name' => 'id')
+    )
 
 );
-$flox = Flox::factory('flow1', $flow_config);
-$flox->execute();
+Flox_Flow::factory('flow1', $flow_config);
+$flow_config2 = array(
+    'node' => array(
+        'node1' => array(
+            'api' => 'flow',
+            'arg' => array('flow_id' => 'flow1', 'arg' => array('id' => 1)),
+            'bind' => array(),
+        ),
+    ),
+    'entry' => 'node1',
+    'in' => array(
+        array('name' => 'id'),
+    ),
+
+);
+$flox = Flox::factory('flow2', $flow_config2);
+$flox->execute(array('id' => 10));
 //$flow = Flox_Flow::$current;
 //var_dump($flow->context);

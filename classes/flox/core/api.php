@@ -82,7 +82,8 @@ class Flox_Core_Api
                 }
             }
 
-            $closure = create_function($param, $config['expr']);
+            $closure = create_function($param, 
+                '$CONTEXT = Flox_Flow::$current->context;' . $config['expr']);
             if ($err = error_get_last()) {
                 throw new Exception("failed to create closure, "
                     . "line {$err['line']}, message: {$err['message']}");
