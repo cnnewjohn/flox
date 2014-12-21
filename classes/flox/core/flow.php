@@ -1,405 +1,201 @@
 <?php
 /**
- * Flow Class
+ * Flox Core Flow Class
  */
 class Flox_Core_Flow
 {
+    public static $config = array();
+    public static $loader;
+    public static $saver;
+    public static $current;
 
-    /**
-     * current flow instance config
-     */
     private $_config = array();
+    public $context = array();
+    private $_flow_id;
+    private $_node = array();
 
-    /**
-     * current flow isntance id
-     */
-    private $_id = '';
 
-    /**
-     * current flow instance context
-     */
-    private $_context = array();
-
-    /**
-     * cached flow instance config
-     */
-    private static $_cached_config = array();
-
-    /**
-     * flow config custom loader
-     */
-    private static $_loader = array();
-
-    /**
-     * decesion expr closure function
-     */
-    private static $_closure = array();
-
-    /**
-     * create new flow instance
-     *
-     * @param mixed $id, flow id
-     * @param mixed $config, flow config
-     */
-    public static function factory($id, $config = NULL)
+    public static function factory($flow_id, $config = array())
     {
-        return new self($id, $config);
+        return new self($flow_id, $config);
     }
 
-    /**
-     * cache flow config by flow id
-     *
-     * @param string $id, flow id
-     * @param arrray $config, flow config
-     * @return NULL
-     */
-    public static function set_cached_config($id, $config)
+    public function __construct($flow_id, $config)
     {
-        self::$_cached_config[$id] = $config;
+        $this->_flow_id = $flow_id;
+
+        if (isset(Flox_Flow::$config[$flow_id])) {
+            $config = Flox_Flow::$config[$flow_id];
+        }
+
+        if (! $this->load($config, $errstr)) {
+            throw new Exception("{$errstr}");
+        }
+        
     }
 
-    /**
-     * get cached flow config by flow id
-     *
-     * @param string $id, flow id
-     * @return mixed, array || NULL
-     */
-    public static function get_cached_config($id)
+    public function load($config = array(), & $errstr = '')
     {
-        if (isset(self::$_cached_config[$id])) {
-            return self::$_cached_config[$id];
-        }
-    }
+        try {
+            if (! $config && is_callable(Flox_Flow::$loader)) {
+                $config = call_user_func_array(Flox_Flow::$loader, array(
+                    $this->_flow_id
+                ));
 
-    /**
-     * set flow config loader
-     * 
-     * @param string $id, loader id
-     * @param callback $loader, custom callback
-     * @return NULL
-     */
-    public static function set_loader($id, $loader)
-    {
-        if (! $id || ! is_string($id) || ! $id) {
-            throw new Flox_Exception("Loader id must be string");
-        }
-
-        if (! is_callable($loader)) {
-            throw new Flox_Exception("Loader must be callable");
-        }
-
-        self::$_loader[$id] = $loader;
-    }
-
-    /**
-     * load flow config by custom loader
-     *
-     * @param string $id, flow id
-     */
-    public static function load($id)
-    {
-        foreach (self::$_loader as $loader) {
-            $config = $loader($id);
-            if (is_array($config) && $config) {
-                return $config;
-            }
-        }
-    }
-
-    /**
-     * set decesion expr closure function
-     *
-     * @param string $id, closure id
-     * @param callback $closure, closure
-     */
-    public static function set_closure($id, $closure)
-    {
-        self::$_closure[$id] = $closure;
-    }
-
-    public static function get_closure($id)
-    {
-        if (isset(self::$_closure[$id])) {
-            return self::$_closure[$id];
-        }
-    }
-
-    /**
-     * construct
-     *
-     * @param string $id, flow id
-     * @param mixed $config, flow config, array || NULL
-     */
-    public function __construct($id, $config)
-    {
-        if (! $id || ! is_string($id)) {
-            throw new Flox_Exception("Failed to create flow by NULL id");
-        }
-
-        /**
-         * try to load config from cache
-         */
-        if ($cached_config = Flox_Flow::get_cached_config($id)) {
-            $this->_config = $config = $cached_config;
-        }
-
-        /**
-         * try to load config by custom callback
-         */
-        if (! $config) {
-            $config = Flox_Flow::load($id);
-            if (! $config || ! is_array($config)) {
-                throw new Flox_Exception("Failed to load flow config");
-            }
-        }
-
-        if (! $config || ! is_array($config)) {
-            throw new Flox_Exception("Flow config must be array");
-        }
-
-        /**
-         * valid config is not from cache
-         */
-        if (! $cached_config) {
-            /**
-            array(
-                'param' => array(   // flow param
-                    array(
-                        'name' => 'param1', // param name
-                        'default' => '',    // param default value
-                    ),
-                ), 
-                'entry' => 'entity_id', // flow entry entity id
-                'entity' => array(      // flow entity array
-                    'entity_id' => array(
-                        'type' => 'process', // process or  decesion
-                        'proto' => '',  // entity proto
-                        'arg' => array()    // entity args
-                        'decesion' => array( // decesions
-                            'expr' => '',
-                            'next' => '',
-                        ),
-                    ),
-                ),
-            )
-             */
-
-            if (! isset($config['param'])) {
-                $config['param'] = array();
-            }
-
-            foreach ($config['param'] as $idx => $param) {
-                if (! isset($param['name']) || ! is_string($param['name'])) {
-                    throw new Flox_Exception("Flow param name must be string");
-                }
-
-                if (! isset($param['default'])) {
-                    $config['param'][$idx]['default'] = $param['default'] = NULL;
+                if (! is_array($config)) {
+                    $config = array();
                 }
             }
 
-            if (! isset($config['entry']) || ! is_string($config['entry'])) {
-                throw new Flox_Exception("Flow entry must be string");
+            $config = $config + array(
+                'title' => 'Unkown Flow',
+                'in' => array(),
+                'out' => array(),
+                'entry' => '',
+                'node' => array(),
+            );
+            $config['id'] = $this->_flow_id;
+
+
+            if ($config['node'] && ! isset($config['node'][$config['entry']])) {
+                throw new Exception("entry id not found: " . $config['entry']);
             }
 
-            if (! isset($config['entity']) || ! is_array($config['entity']) 
-                || ! $config['entity']) {
-                throw new Flox_Exception("Flow entity must not be empty");
-            }
-
-            foreach ($config['entity'] as $entity_id => $entity) {
-                if (! $entity_id) {
-                    throw new Flox_Exception("Entity id must be string");
+            foreach ($config['node'] as $node_id => $node) {
+                $config['node'][$node_id]['id'] = $node_id;
+                if (! isset($node['title']) || ! $node['title']) {
+                    $config['node'][$node_id]['title'] = $node_id;
                 }
 
-                if (! $entity || ! is_array($entity)) {
-                    throw new Flox_Exception("Entity must be array");
+                if (! isset($node['api'])) {
+                    $config['node'][$node_id]['api'] = $node['api'] = '';
+                }
+                Flox_Api::instance($node['api']);
+                if (! isset($node['arg'])) {
+                    $config['node'][$node_id]['arg'] = $node['arg'] = array();
+                }
+                if (! isset($node['bind'])) {
+                    $config['node'][$node_id]['bind'] = $node['bind'] = array();
+                }
+                if (! isset($node['direction'])) {
+                    $config['node'][$node_id]['direction']
+                        = $node['direction'] = array();
                 }
 
-                if (! isset($entity['type']) 
-                    || ! in_array($entity['type'], array('process', 'decesion'))
-                ) {
-                    throw new Flox_Exception("Entity type must be "
-                        . "procee or decesion");
-                }
-                
-                if (! isset($entity['decesion'])) {
-                    $config['entity'][$entity_id]['decesion']
-                        = $entity['decesion'] = array();
-                }
-
-                if ($entity['type'] == 'process') {
-                    if (! isset($entity['proto']) || ! $entity['proto'] 
-                        || ! is_string($entity['proto'])
-                    ) {
-                        throw new Flox_Exception("Entity proto must be string");
+                foreach ($node['bind'] as $idx => $b) {
+                    if (! isset($b['source'])) {
+                        $config['node'][$node_id]['bind'][$idx]['source'] = '';
+                    }
+                    if (! isset($b['target'])) {
+                        $config['node'][$node_id]['bind'][$idx]['target'] 
+                            = $b['target'] = '';
+                    }
+                    if (! preg_match('/^[a-zA-Z_]+/i', $b['target'])) {
+                        throw new Exception("invalid target name");
+                    }
+                    if (! isset($b['title']) || ! $b['title']) {
+                        $config['node'][$node_id]['bind'][$idx]['title']
+                            = $b['title'] = $b['target'];
                     }
 
-                    if (! isset($entity['arg'])) {
-                        $config['entity'][$entity_id]['arg'] 
-                        = $entity['arg'] = array();
-                    }
-
-                    if (count($entity['decesion']) > 1) {
-                        throw new Flox_Exception("Entity proto only "
-                            . "have one decesion");
-                    }
-
-                    if ($entity['decesion']) {
-                        $decesion = $entity['decesion'][0];
-                        if (
-                            ! isset($decesion['next']) 
-                            || ! is_string($decesion['next'])
-                        ) {
-                            throw new Flox_Exception("Decesion next must be " 
-                                . "string");
-                        }
-
-                        if (! isset($config['entity'][$decesion['next']])) {
-                            throw new Flox_Exception("Decesion next entity "
-                                . "not found");
-                        }
-                    }
-
-                    $proto = Flox_Proto::instance($entity['proto']);
                 }
-                
-                if ($entity['type'] == 'decesion') {
-                    if (! $entity['decesion']) {
-                        throw new Flox_Exception("Entity must have a decesion");
+
+                foreach ($node['direction'] as $idx => $d) {
+                    if (! isset($d['next'])) {
+                        throw new Exception("invalid next node of direction");
                     }
-                    
-                    foreach ($entity['decesion'] as $decesion) {
-                        if (! isset($decesion['expr']) 
-                            || ! is_string($decesion['expr'])
-                        ) {
-                            throw new Flox_Exception("Decesion expr must be "
-                                . "string");
-                        }
-
-                        $closure_id = md5($decesion['expr']);
-                        $expr = "return ({$decesion['expr']});";
-                        if (! Flox_Util::check_php_syntax($expr)) {
-                            throw new Flox_Exception("Decesion expr is invalid "
-                                . "php source code");
-                        }
-                        if (! $closure = Flox_Flow::get_closure($closure_id)) {
-                            $closure = create_function('', $expr);
-                            if (! $closure) {
-                                throw new Flox_Exception("Failed to create "
-                                    . "closure");
-                            }
-                            Flox_Flow::set_closure($closure_id, $closure);
-                        }
-
-
-                        if (! isset($decesion['next']) 
-                            || ! is_string($decesion['next'])) {
-                                throw new Flox_Exception("Decesion next must be "
-                                    . "string");
-                        }
-
-                        if (! isset($config['entity'][$decesion['next']])) {
-                            throw new Flox_Exception("Decesion next entity "
-                                . "not found");
-                        }
+                    if (! isset($config['node'][$d['next']])) {
+                        throw new Exception("invalid next node of direction");
                     }
+                    if (! isset($d['title'])) {
+                        $config['node'][$node_id]['direction'][$idx]['title']
+                            = $d['title'] = $idx;
+                    }
+                    if (! isset($d['expr'])) {
+                        $config['node'][$node_id]['direction'][$idx]['expr']
+                            = $d['expr'] = '';
+                    }
+                    Flox_Util::create_closure('$context', 
+                        "return ({$d['expr']});");
                 }
             }
 
-            if (! isset($config['entity'][$config['entry']])) {
-                throw new Flox_Exception("Flow entry entity not exists");
+            foreach ($config['in'] as $idx => $p) {
+                if (! isset($p['name'])) {
+                    throw new Exception("invalid input param name");
+                }
+                if (! preg_match('/^[a-zA-Z_]+/i', $p['name'])) {
+                    throw new Exception("invalid input parma name");
+                }
+                if (! isset($p['title']) || ! $p['title']) {
+                    $config['in'][$idx]['title'] = $p['name'];
+                }
             }
 
-            $this->_config = $config;
-            Flox_Flow::set_cached_config($id, $config);
-        }
+            
+            Flox_Flow::$config[$this->_flow_id] = $this->_config = $config;
 
-    }
-
-    /**
-     * set current flow instance context
-     *
-     * @param string $key
-     * @param mixed $value
-     */
-    public function set_context($key, $value)
-    {
-        $this->_context[$key] = $value;
-    }
-
-    /**
-     * get current flow instance cnotext
-     *
-     * @param string $key
-     */
-    public function get_context($key)
-    {
-        if (isset($this->_context[$key])) {
-            return $this->_context[$key];
+            return TRUE;
+        } catch (Exception $e) {
+            $errstr = $e->getMessage();
         }
     }
 
+    public function save()
+    {
+        if (is_callable(Flox_Flow::$saver)) {
+            call_user_func_array(Flox_Flow::$saver, array(
+                $this->_flow_id,
+                $this->_config
+            ));
+        }
+    }
+
+    private function _execute_node($node_id)
+    {
+        $node = $this->_config['node'][$node_id];
+        $api = Flox_Api::instance($node['api']);
+        $ret = $api->execute($node['arg']);
+
+        foreach ($node['bind'] as $bind) {
+            $value = Flox_Util::path($ret, $bind['source']);
+            $this->context[$bind['target']] = $value;
+        }
+
+        foreach ($node['direction'] as $d) {
+            $closure = Flox_Util::create_closure('$context', 
+                        "return ({$d['expr']});");
+
+            if (call_user_func_array($closure, array($this->context))) {
+                return $d['next'];
+            }
+        }
+    }
+
+    public function config()
+    {
+        return $this->_config;
+    }
+    
     /**
-     * execute flow
-     *
-     * @param array $arg 
+     * init context when execute
      */
     public function execute($arg = array())
     {
-        Flox::current()->set_current_flow($this);
-        $entity_id = $this->_config['entry'];
+        $this->context = array();
+        Flox_Flow::$current = $this;
 
-        if (! is_array($arg)) {
-            $arg = array();
+        foreach ($this->_config['in'] as $in) {
+            $key = $in['name'];
+            $this->context[$key] = isset($arg[$key])? $arg[$key] : NULL;
         }
 
-        foreach ($this->_config['param'] as $param) {
-            $key = $param['name'];
-            if (is_array($arg) && isset($arg[$key])) {
-                $this->_context[$key] = $arg[$key];
-            } else {
-                $this->_context[$key] = $param['default'];
-            }
-
-            $this->_context[$key] = Flox::replace_var($this->_context[$key],
-                'GLOBAL');
+        $node_id = $this->_config['entry'];
+        while (isset($this->_config['node'][$node_id])) {
+            $node_id = $this->_execute_node($node_id);
         }
 
-
-
-        while ($entity_id && isset($this->_config['entity'][$entity_id])) {
-            $entity_id = $this->_execute_entity($entity_id);
-        }
     }
 
-    /**
-     * execute entity
-     *
-     * @param string $id, entity id
-     */
-    private function _execute_entity($id)
-    {
-        $entity = $this->_config['entity'][$id];
 
-        if ($entity['type'] == 'process') {
-            $proto = Flox_Proto::instance($entity['proto']);
-            $proto->execute($entity['arg']);
-        }
-
-        foreach ($entity['decesion'] as $decesion) {
-            if ($entity['type'] == 'process') {
-                return $decesion['next'];
-            } elseif ($entity['type'] == 'decesion') {
-                $closure_id = md5($decesion['expr']);
-                $closure = Flox_Flow::get_closure($closure_id);
-                if ($closure()) {
-                    return $decesion['next'];
-                }
-            }
-
-        }
-            
-
-    }
 }
